@@ -64,6 +64,10 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <receiver
+            android:name=".notify.PendingAudioActionReceiver"
+            android:exported="false" />
+
         <service
             android:name=".assistant.EasyNoteVoiceInteractionService"
             android:exported="true"

@@ -98,8 +98,13 @@ class RecordingService : Service() {
         notifications.updateToTranscribing()
         val success = TranscriptionQueue.transcribe(applicationContext, pendingFile)
         if (!success) {
+            val modelReady = ModelProvisioner.isModelReady(this)
             haptics.atRisk()
-            notifications.postFailure(transcriptionFailureMessage())
+            notifications.postFailure(
+                message = transcriptionFailureMessage(modelReady),
+                captureId = captureId,
+                allowDiscard = modelReady
+            )
         }
         stopSelf(startId)
     }
@@ -109,8 +114,8 @@ class RecordingService : Service() {
      * recoverable - the audio is already in _pending/ and gets retried - but only if the user
      * is told what to actually do about it.
      */
-    private fun transcriptionFailureMessage(): String =
-        if (!ModelProvisioner.isModelReady(this)) {
+    private fun transcriptionFailureMessage(modelReady: Boolean): String =
+        if (!modelReady) {
             "Speech model not downloaded yet. Open EasyNote to finish setup - audio is safe in Inbox/_pending."
         } else {
             "Transcription failed. Audio kept in Inbox/_pending."
@@ -124,10 +129,24 @@ class RecordingService : Service() {
             return
         }
         for (file in VaultWriter.pendingAudioFiles()) {
+            val captureId = file.nameWithoutExtension
             val success = TranscriptionQueue.transcribe(applicationContext, file)
-            if (!success) {
-                haptics.atRisk()
-                notifications.postFailure("Retry failed for ${file.name}.")
+            if (success) {
+                // The capture that first failed left a notification behind; it is stale the
+                // moment the note actually lands.
+                notifications.cancelFailure(captureId)
+            } else {
+                // No haptic on this path. The sweep re-runs every pending file on every
+                // capture, so buzzing here would fire a 5-second at-risk rumble about audio
+                // the user was already told about - during a capture that may have gone fine.
+                // The notification is the durable report, and its per-capture id means this
+                // silently refreshes the existing entry rather than adding another.
+                notifications.postFailure(
+                    message = "No note could be produced from ${file.name}. " +
+                        "Discard it if the recording is not worth keeping.",
+                    captureId = captureId,
+                    allowDiscard = true
+                )
             }
         }
         if (startId >= 0) stopSelf(startId)
