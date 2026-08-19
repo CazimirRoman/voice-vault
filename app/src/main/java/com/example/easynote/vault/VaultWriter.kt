@@ -25,8 +25,8 @@ object VaultWriter {
      * (Created / Priority / Area / Action), so voice notes sit alongside manually
      * written ones without looking like a different kind of thing.
      */
-    fun writeNote(text: String, captureId: String): File {
-        val file = File(Config.inboxDir, "$captureId.md")
+    fun writeNote(text: String, captureId: String, inboxDir: File = Config.inboxDir): File {
+        val file = File(inboxDir, "$captureId.md")
         val createdDate = captureId.take(10)
         val content = "---\n" +
             "Created: $createdDate\n" +
@@ -43,6 +43,30 @@ object VaultWriter {
         Config.pendingDir.listFiles { file -> file.isFile && file.extension == "wav" }
             ?.toList()
             .orEmpty()
+
+    /** Writes/overwrites the per-capture diagnostic record beside its orphan audio in `_pending/`. */
+    fun writeDiagnostic(captureId: String, text: String, pendingDir: File = Config.pendingDir) {
+        pendingDir.mkdirs()
+        AtomicFileWriter.write(diagnosticFile(captureId, pendingDir), text)
+    }
+
+    /** Removes the diagnostic record for [captureId], if any - called wherever its audio is deleted. */
+    fun deleteDiagnostic(captureId: String, pendingDir: File = Config.pendingDir) {
+        diagnosticFile(captureId, pendingDir).delete()
+    }
+
+    private fun diagnosticFile(captureId: String, pendingDir: File): File =
+        File(pendingDir, "$captureId.${Config.DIAGNOSTIC_RECORD_EXTENSION}")
+
+    /** Whether a note for [captureId] already exists - the source of truth for "did this capture succeed". */
+    fun noteExists(captureId: String, inboxDir: File = Config.inboxDir): Boolean =
+        File(inboxDir, "$captureId.md").exists()
+
+    /** Recording duration in seconds, derived from file size given the fixed PCM16 mono header. */
+    fun wavDurationSeconds(wavFile: File): Double {
+        val dataBytes = (wavFile.length() - Config.WAV_HEADER_SIZE_BYTES).coerceAtLeast(0)
+        return dataBytes / 2.0 / Config.SAMPLE_RATE_HZ
+    }
 
     /** A timestamp-based id, disambiguated so it can never collide with an existing note. */
     fun captureIdFor(timestamp: Date = Date()): String {

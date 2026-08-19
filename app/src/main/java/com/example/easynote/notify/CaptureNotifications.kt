@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
+import com.example.easynote.transcribe.TranscriptionOutcome
 
 /**
  * The ongoing "listening / transcribing" notification required by the foreground
@@ -57,6 +58,43 @@ class CaptureNotifications(private val context: Context) {
         manager.notify(STATUS_NOTIFICATION_ID, statusNotification("Transcribing…"))
     }
 
+    /** Posts a failure whose cause is a classified [TranscriptionOutcome], with a per-outcome message. */
+    fun postFailure(
+        outcome: TranscriptionOutcome,
+        captureId: String,
+        durationSeconds: Double,
+        allowDiscard: Boolean
+    ) {
+        postFailure(messageFor(outcome, durationSeconds), captureId, allowDiscard)
+    }
+
+    private fun messageFor(outcome: TranscriptionOutcome, durationSeconds: Double): String {
+        val duration = formatDuration(durationSeconds)
+        return when (outcome) {
+            is TranscriptionOutcome.NoSpeech -> {
+                val heard = outcome.rawText.ifBlank { "nothing" }
+                "No speech detected in a $duration recording. Whisper heard: \"$heard\". " +
+                    "Discard it if it is not worth keeping."
+            }
+            is TranscriptionOutcome.ModelUnavailable ->
+                "Speech model not downloaded yet. Open EasyNote to finish setup - " +
+                    "a $duration recording is safe in Inbox/_pending."
+            is TranscriptionOutcome.TranscribeFailed ->
+                "Transcription failed for a $duration recording. Audio kept in Inbox/_pending."
+            is TranscriptionOutcome.NoteWriteFailed ->
+                "Transcribed a $duration recording but could not save the note. Audio kept in Inbox/_pending."
+            is TranscriptionOutcome.Success, TranscriptionOutcome.AlreadyHandled ->
+                error("$outcome is not a failure and should never reach a notification")
+        }
+    }
+
+    private fun formatDuration(seconds: Double): String {
+        val totalSeconds = seconds.toInt().coerceAtLeast(0)
+        val minutes = totalSeconds / 60
+        val secs = totalSeconds % 60
+        return if (minutes > 0) "%d:%02d".format(minutes, secs) else "${secs}s"
+    }
+
     /**
      * @param captureId the pending audio this failure is about, or null if the capture died
      *   before anything was written and there is nothing to retry or discard.
@@ -97,6 +135,24 @@ class CaptureNotifications(private val context: Context) {
     fun cancelFailure(captureId: String) {
         context.getSystemService(NotificationManager::class.java)
             .cancel(failureNotificationId(captureId))
+    }
+
+    /**
+     * Cancels any active failure notification whose capture is not in [expectedCaptureIds].
+     * A failure notification only ever gets cleared by a later sweep that finds and
+     * transcribes its file - once the file is gone by any other path (success elsewhere,
+     * Discard, a stale build's phantom alert), nothing would otherwise ever look at it again.
+     */
+    fun clearStaleFailures(expectedCaptureIds: Set<String>) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val expectedIds = expectedCaptureIds.mapTo(mutableSetOf()) { failureNotificationId(it) }
+        for (active in manager.activeNotifications) {
+            if (active.notification.channelId != FAILURE_CHANNEL_ID) continue
+            if (active.id == UNIDENTIFIED_FAILURE_NOTIFICATION_ID) continue
+            if (active.id !in expectedIds) {
+                manager.cancel(active.id)
+            }
+        }
     }
 
     private fun discardIntent(captureId: String, notificationId: Int): PendingIntent {

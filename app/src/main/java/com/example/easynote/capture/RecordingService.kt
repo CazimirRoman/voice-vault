@@ -3,8 +3,11 @@ package com.example.easynote.capture
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
+import com.example.easynote.Config
 import com.example.easynote.notify.CaptureNotifications
 import com.example.easynote.transcribe.ModelProvisioner
+import com.example.easynote.transcribe.TranscriptionOutcome
 import com.example.easynote.transcribe.TranscriptionQueue
 import com.example.easynote.vault.VaultWriter
 import com.example.easynote.vault.WavEncoder
@@ -12,6 +15,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Owns one capture end to end: acquire the microphone, signal via haptics, stop on
@@ -65,6 +72,7 @@ class RecordingService : Service() {
         val result = try {
             audioRecorder.record(stop) { haptics.started() }
         } catch (t: Throwable) {
+            Log.w(Config.LOG_TAG, "recording failed to start", t)
             CaptureController.activeStop = null
             CaptureEvents.notifyRecordingEnded()
             haptics.atRisk()
@@ -89,6 +97,7 @@ class RecordingService : Service() {
         val pendingFile = try {
             VaultWriter.writePendingAudio(wav, captureId)
         } catch (t: Throwable) {
+            Log.w(Config.LOG_TAG, "could not save recording for $captureId", t)
             haptics.atRisk()
             notifications.postFailure("Could not save the recording.")
             stopSelf(startId)
@@ -96,30 +105,10 @@ class RecordingService : Service() {
         }
 
         notifications.updateToTranscribing()
-        val success = TranscriptionQueue.transcribe(applicationContext, pendingFile)
-        if (!success) {
-            val modelReady = ModelProvisioner.isModelReady(this)
-            haptics.atRisk()
-            notifications.postFailure(
-                message = transcriptionFailureMessage(modelReady),
-                captureId = captureId,
-                allowDiscard = modelReady
-            )
-        }
+        val outcome = TranscriptionQueue.transcribe(applicationContext, pendingFile)
+        handleOutcome(outcome, captureId, isFirstAttempt = true)
         stopSelf(startId)
     }
-
-    /**
-     * Until the one-time model download finishes, every capture fails transcription. That is
-     * recoverable - the audio is already in _pending/ and gets retried - but only if the user
-     * is told what to actually do about it.
-     */
-    private fun transcriptionFailureMessage(modelReady: Boolean): String =
-        if (!modelReady) {
-            "Speech model not downloaded yet. Open EasyNote to finish setup - audio is safe in Inbox/_pending."
-        } else {
-            "Transcription failed. Audio kept in Inbox/_pending."
-        }
 
     private suspend fun retryPending(startId: Int) {
         // Retrying without a model can only fail, once per pending file - which would bury
@@ -128,28 +117,60 @@ class RecordingService : Service() {
             if (startId >= 0) stopSelf(startId)
             return
         }
-        for (file in VaultWriter.pendingAudioFiles()) {
+        val pendingFiles = VaultWriter.pendingAudioFiles()
+        // A failure notification only ever gets cleared when a later sweep finds and
+        // transcribes its file - clear anything whose file is no longer pending at all,
+        // including the three phantom alerts a broken build already left behind.
+        notifications.clearStaleFailures(pendingFiles.mapTo(mutableSetOf()) { it.nameWithoutExtension })
+        for (file in pendingFiles) {
             val captureId = file.nameWithoutExtension
-            val success = TranscriptionQueue.transcribe(applicationContext, file)
-            if (success) {
-                // The capture that first failed left a notification behind; it is stale the
-                // moment the note actually lands.
-                notifications.cancelFailure(captureId)
-            } else {
-                // No haptic on this path. The sweep re-runs every pending file on every
-                // capture, so buzzing here would fire a 5-second at-risk rumble about audio
-                // the user was already told about - during a capture that may have gone fine.
-                // The notification is the durable report, and its per-capture id means this
-                // silently refreshes the existing entry rather than adding another.
-                notifications.postFailure(
-                    message = "No note could be produced from ${file.name}. " +
-                        "Discard it if the recording is not worth keeping.",
-                    captureId = captureId,
-                    allowDiscard = true
-                )
-            }
+            val outcome = TranscriptionQueue.transcribe(applicationContext, file)
+            handleOutcome(outcome, captureId, isFirstAttempt = false)
         }
         if (startId >= 0) stopSelf(startId)
+    }
+
+    /** Reports (or silently clears) a classified transcription outcome for one capture. */
+    private fun handleOutcome(outcome: TranscriptionOutcome, captureId: String, isFirstAttempt: Boolean) {
+        if (outcome is TranscriptionOutcome.Success || outcome is TranscriptionOutcome.AlreadyHandled) {
+            notifications.cancelFailure(captureId)
+            return
+        }
+        // Belt-and-braces against the class of bug, not just the one race that caused it:
+        // if a note is already there by any path, this capture did not fail.
+        if (VaultWriter.noteExists(captureId)) {
+            notifications.cancelFailure(captureId)
+            return
+        }
+
+        VaultWriter.writeDiagnostic(captureId, diagnosticText(outcome, captureId))
+        val durationSeconds = VaultWriter.wavDurationSeconds(File(Config.pendingDir, "$captureId.wav"))
+        val allowDiscard = outcome !is TranscriptionOutcome.ModelUnavailable
+        notifications.postFailure(outcome, captureId, durationSeconds, allowDiscard)
+
+        // The at-risk rumble is a data-loss signal. NoSpeech on a retry sweep is not lost
+        // data and the sweep re-runs every capture, so only the first attempt buzzes for it;
+        // every other failure class buzzes on both the first attempt and every later sweep.
+        if (isFirstAttempt || outcome !is TranscriptionOutcome.NoSpeech) {
+            haptics.atRisk()
+        }
+    }
+
+    private fun diagnosticText(outcome: TranscriptionOutcome, captureId: String): String {
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+        val detail = when (outcome) {
+            is TranscriptionOutcome.NoSpeech ->
+                "No speech detected. Whisper output: \"${outcome.rawText}\""
+            is TranscriptionOutcome.ModelUnavailable ->
+                "Speech model unavailable.\n${outcome.cause?.stackTraceToString().orEmpty()}"
+            is TranscriptionOutcome.TranscribeFailed ->
+                "Transcription error.\n${outcome.cause.stackTraceToString()}"
+            is TranscriptionOutcome.NoteWriteFailed ->
+                "Note write error.\n${outcome.cause.stackTraceToString()}"
+            is TranscriptionOutcome.Success, TranscriptionOutcome.AlreadyHandled ->
+                "" // handled before this is ever called
+        }
+        return "$timestamp  $captureId\n$detail\n"
     }
 
     private fun startTapToStopOverlay() {

@@ -22,6 +22,15 @@ object Config {
     const val SILENCE_DURATION_MS = 5_000L
     const val MAX_RECORDING_DURATION_MS = 180_000L
 
+    /** Tag for every `Log` call in the app, so a tethered logcat session can filter on one string. */
+    const val LOG_TAG = "EasyNote"
+
+    /** Extension for the per-capture diagnostic record written beside orphan audio in `_pending/`. */
+    const val DIAGNOSTIC_RECORD_EXTENSION = "log"
+
+    /** Byte size of the fixed PCM16 mono header `WavEncoder` writes, used to derive duration from file size. */
+    const val WAV_HEADER_SIZE_BYTES = 44
+
     const val MODEL_FILE_NAME = "ggml-base.en-q5_1.bin"
 
     /**

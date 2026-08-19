@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.example.easynote.Config
+import com.example.easynote.vault.VaultWriter
 import java.io.File
 
 /**
@@ -30,6 +31,7 @@ class PendingAudioActionReceiver : BroadcastReceiver() {
         // A failed delete needs no handling: the goal is only that the file stops being
         // picked up by the retry sweep, and it is already gone in that case.
         File(Config.pendingDir, "$captureId.wav").delete()
+        VaultWriter.deleteDiagnostic(captureId)
 
         val notificationId = intent.getIntExtra(
             EXTRA_NOTIFICATION_ID,
