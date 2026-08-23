@@ -14,7 +14,7 @@
 
 These cannot be verified from code inspection or on the JVM; the failure they cover depends on real microphone input from a real pocket. Do not mark them done without running them on the Pixel 6 Pro.
 
-- [ ] 3.1 Trigger a capture, speak, press the power button, pocket the phone. The stop buzz fires at the button press and a note appears in the vault containing the speech.
+- [x] 3.1 Trigger a capture, speak, press the power button, pocket the phone. The stop buzz fires at the button press and a note appears in the vault containing the speech.
 - [ ] 3.2 Repeat 3.1 while walking, so the pocket is genuinely noisy. Confirm the recording still ends at the button press and does not run to the 3-minute cap.
 - [ ] 3.3 Trigger a capture, speak, and leave the phone flat on the table without touching the power button. Confirm the silence stop still fires after ~5 seconds and its buzz is unchanged.
 - [ ] 3.4 Trigger a capture and tap the screen. Confirm tap-to-stop still ends the recording immediately.
