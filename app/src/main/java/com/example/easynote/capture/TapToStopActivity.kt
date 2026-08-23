@@ -2,6 +2,7 @@ package com.example.easynote.capture
 
 import android.os.Bundle
 import android.view.MotionEvent
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -37,12 +38,17 @@ import kotlinx.coroutines.flow.onEach
  * confirmation that a power-button hold actually started a capture; haptics remain
  * the primary channel, since the phone is expected to be pocketed. A tap anywhere
  * ends the capture early; nothing else in the capture flow depends on it, and it
- * closes itself the moment recording ends by any other stop condition.
+ * closes itself the moment recording ends by any other stop condition. It keeps the
+ * display awake while it is up, so that a screen-off is always a deliberate power press
+ * and never an idle timeout - the recording service reads it as a stop.
  */
 class TapToStopActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The service treats screen-off as "the user is done speaking", so the display must
+        // never sleep on its own - otherwise a long thinking pause would read as a stop.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         CaptureEvents.recordingEnded
             .onEach { finish() }

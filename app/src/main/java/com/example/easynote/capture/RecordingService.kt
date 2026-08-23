@@ -1,7 +1,10 @@
 package com.example.easynote.capture
 
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.IBinder
 import android.util.Log
 import com.example.easynote.Config
@@ -22,7 +25,7 @@ import java.util.Locale
 
 /**
  * Owns one capture end to end: acquire the microphone, signal via haptics, stop on
- * silence/tap/cap, persist audio before anything else, then hand off to transcription.
+ * silence/tap/screen-off/cap, persist audio before anything else, then hand off to transcription.
  * Runs as a foreground service so recording survives the screen locking or the
  * phone being pocketed - the whole point of an eyes-free capture flow.
  */
@@ -67,12 +70,16 @@ class RecordingService : Service() {
 
         val stop = ExternalStop()
         CaptureController.activeStop = stop
+        // Per-capture, not a service field: captures can overlap, and each one must stop
+        // on its own screen-off rather than sharing a registration with another.
+        val screenOffStop = registerScreenOffStop(stop)
         startTapToStopOverlay()
 
         val result = try {
             audioRecorder.record(stop) { haptics.started() }
         } catch (t: Throwable) {
             Log.w(Config.LOG_TAG, "recording failed to start", t)
+            screenOffStop.release()
             CaptureController.activeStop = null
             CaptureEvents.notifyRecordingEnded()
             haptics.atRisk()
@@ -81,6 +88,7 @@ class RecordingService : Service() {
             return
         }
 
+        screenOffStop.release()
         CaptureController.activeStop = null
         haptics.stopped()
         CaptureEvents.notifyRecordingEnded()
@@ -171,6 +179,45 @@ class RecordingService : Service() {
                 "" // handled before this is ever called
         }
         return "$timestamp  $captureId\n$detail\n"
+    }
+
+    /**
+     * Ends the capture when the user turns off the screen. Pressing the power button and
+     * pocketing the phone is the real "I'm done" gesture, and it is also what fills the
+     * microphone with fabric noise - so on the app's primary flow the silence threshold is
+     * never reached. This is a stop, not a cancel: it sets the same flag tap-to-stop uses,
+     * so everything downstream of the recording loop is unchanged.
+     *
+     * Owned by the service rather than the overlay, so it still works if the overlay never
+     * launched - nothing in the capture flow may depend on that activity.
+     * `ACTION_SCREEN_OFF` is not deliverable to a manifest-declared receiver.
+     */
+    private fun registerScreenOffStop(stop: ExternalStop): Registration {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) stop.request()
+            }
+        }
+        return try {
+            registerReceiver(receiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+            Registration { unregisterReceiver(receiver) }
+        } catch (t: Throwable) {
+            // A capture that cannot listen for screen-off is still a valid capture; it just
+            // falls back to the silence and hard-cap stop conditions.
+            Log.w(Config.LOG_TAG, "could not listen for screen-off", t)
+            Registration { }
+        }
+    }
+
+    /** Idempotent teardown - `unregisterReceiver` throws if it is called a second time. */
+    private class Registration(private val undo: () -> Unit) {
+        private var released = false
+
+        fun release() {
+            if (released) return
+            released = true
+            undo()
+        }
     }
 
     private fun startTapToStopOverlay() {
