@@ -59,6 +59,15 @@
             android:showWhenLocked="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
+        <activity
+            android:name=".quicknote.QuickNoteActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.EasyNote.QuickNote"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+
         <service
             android:name=".capture.RecordingService"
             android:exported="false"
@@ -67,6 +76,17 @@
         <receiver
             android:name=".notify.PendingAudioActionReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".quicknote.QuickNoteWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_note_widget_info" />
+        </receiver>
 
         <service
             android:name=".assistant.EasyNoteVoiceInteractionService"

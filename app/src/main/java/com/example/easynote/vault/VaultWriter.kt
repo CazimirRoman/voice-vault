@@ -7,7 +7,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** A previously captured note, trimmed down for display (frontmatter stripped). */
+data class NoteSummary(val captureId: String, val body: String)
+
 object VaultWriter {
+
+    private val FRONTMATTER = Regex("(?s)^---.*?---\\n")
 
     fun hasStorageAccess(): Boolean = Environment.isExternalStorageManager()
 
@@ -57,6 +62,19 @@ object VaultWriter {
 
     private fun diagnosticFile(captureId: String, pendingDir: File): File =
         File(pendingDir, "$captureId.${Config.DIAGNOSTIC_RECORD_EXTENSION}")
+
+    /** The most recently captured notes (voice or quick-text alike), newest first, frontmatter stripped. */
+    fun recentNotes(limit: Int = 5, inboxDir: File = Config.inboxDir): List<NoteSummary> =
+        inboxDir.listFiles { file -> file.isFile && file.extension == "md" }
+            ?.sortedByDescending { it.lastModified() }
+            ?.take(limit)
+            ?.map { file ->
+                NoteSummary(
+                    captureId = file.nameWithoutExtension,
+                    body = file.readText().replaceFirst(FRONTMATTER, "").trim()
+                )
+            }
+            .orEmpty()
 
     /** Whether a note for [captureId] already exists - the source of truth for "did this capture succeed". */
     fun noteExists(captureId: String, inboxDir: File = Config.inboxDir): Boolean =

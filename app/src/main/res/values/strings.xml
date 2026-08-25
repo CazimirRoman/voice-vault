@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">EasyNote</string>
+    <string name="quick_note_widget_label">Quick Note</string>
 </resources>
