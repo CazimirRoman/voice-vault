@@ -18,6 +18,12 @@ EasyNote is a single-device (Pixel 6 Pro, sideloaded, arm64-v8a only), MVP Andro
 
 There is no CI and no distribution — every change is verified by sideloading to the physical Pixel 6 Pro. Many tasks in `openspec/changes/archive/2026-08-13-add-voice-note-capture/tasks.md` are marked incomplete specifically because they require a human with the physical device (feeling haptics, triggering via the real power button, observing the notification shade, etc.) — don't mark them done from code inspection alone.
 
+## Git workflow
+
+- **Never create branches.** Commit directly to `main`, even for multi-commit changes. This overrides any default about branching before committing on the default branch.
+- **No PRs.** There is no CI, no remote review, and one developer — a PR would only add a step between a commit and a sideload.
+- Stage deliberately rather than with `git add -A`: OpenSpec changes authored in another session can be sitting untracked in the tree, and sweeping them into an unrelated commit is easy to do and annoying to unpick.
+
 ## OpenSpec workflow
 
 This repo uses OpenSpec (`openspec/`) for spec-driven change proposals. `openspec/specs/` holds the finalized specs (`assistant-trigger`, `offline-transcription`, `vault-writing`, `voice-capture`); `openspec/changes/archive/2026-08-13-add-voice-note-capture/` holds the proposal, design doc, and task checklist that produced them. Use the `openspec-*` skills for proposing, exploring, or archiving changes rather than editing these files free-hand.
