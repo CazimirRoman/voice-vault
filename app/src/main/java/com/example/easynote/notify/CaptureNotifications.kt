@@ -19,6 +19,7 @@ class CaptureNotifications(private val context: Context) {
     companion object {
         const val STATUS_CHANNEL_ID = "capture_status"
         const val FAILURE_CHANNEL_ID = "capture_failures"
+        const val NO_SPEECH_CHANNEL_ID = "capture_no_speech"
         const val STATUS_NOTIFICATION_ID = 1
 
         /** Failures that happened before any audio reached _pending/, so there is no file to key on. */
@@ -39,6 +40,32 @@ class CaptureNotifications(private val context: Context) {
                 hash
             }
         }
+
+        /**
+         * Which channel a classified outcome alerts on. `NoSpeech` is the one outcome that
+         * risks no recorded speech, so it alone gets the silent channel; every other failure
+         * keeps the loud one. Kept free of [Context] so it is unit-testable on the JVM.
+         */
+        fun channelFor(outcome: TranscriptionOutcome): String = when (outcome) {
+            is TranscriptionOutcome.NoSpeech -> NO_SPEECH_CHANNEL_ID
+            is TranscriptionOutcome.ModelUnavailable,
+            is TranscriptionOutcome.TranscribeFailed,
+            is TranscriptionOutcome.NoteWriteFailed -> FAILURE_CHANNEL_ID
+            is TranscriptionOutcome.Success, TranscriptionOutcome.AlreadyHandled ->
+                error("$outcome is not a failure and should never reach a notification")
+        }
+
+        /** The generic, non-outcome-specific title, used by the string-only [postFailure] overload. */
+        fun genericTitle(captureId: String?): String =
+            captureId?.let { "Note needs attention · $it" } ?: "Note needs attention"
+
+        /** Which title a classified outcome's notification carries. Also [Context]-free. */
+        fun titleFor(outcome: TranscriptionOutcome, captureId: String?): String =
+            if (outcome is TranscriptionOutcome.NoSpeech) {
+                captureId?.let { "No speech · $it" } ?: "No speech"
+            } else {
+                genericTitle(captureId)
+            }
     }
 
     init {
@@ -48,6 +75,13 @@ class CaptureNotifications(private val context: Context) {
         )
         manager.createNotificationChannel(
             NotificationChannel(FAILURE_CHANNEL_ID, "Capture failures", NotificationManager.IMPORTANCE_HIGH)
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                NO_SPEECH_CHANNEL_ID,
+                "Captures with no speech",
+                NotificationManager.IMPORTANCE_LOW
+            )
         )
     }
 
@@ -65,7 +99,13 @@ class CaptureNotifications(private val context: Context) {
         durationSeconds: Double,
         allowDiscard: Boolean
     ) {
-        postFailure(messageFor(outcome, durationSeconds), captureId, allowDiscard)
+        postFailure(
+            channelId = channelFor(outcome),
+            title = titleFor(outcome, captureId),
+            message = messageFor(outcome, durationSeconds),
+            captureId = captureId,
+            allowDiscard = allowDiscard
+        )
     }
 
     private fun messageFor(outcome: TranscriptionOutcome, durationSeconds: Double): String {
@@ -103,12 +143,28 @@ class CaptureNotifications(private val context: Context) {
      *   own later, so offering to delete it would be offering to lose a good recording.
      */
     fun postFailure(message: String, captureId: String? = null, allowDiscard: Boolean = false) {
+        postFailure(
+            channelId = FAILURE_CHANNEL_ID,
+            title = genericTitle(captureId),
+            message = message,
+            captureId = captureId,
+            allowDiscard = allowDiscard
+        )
+    }
+
+    private fun postFailure(
+        channelId: String,
+        title: String,
+        message: String,
+        captureId: String?,
+        allowDiscard: Boolean
+    ) {
         val manager = context.getSystemService(NotificationManager::class.java)
         val notificationId =
             captureId?.let { failureNotificationId(it) } ?: UNIDENTIFIED_FAILURE_NOTIFICATION_ID
 
-        val builder = NotificationCompat.Builder(context, FAILURE_CHANNEL_ID)
-            .setContentTitle("Note needs attention")
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -147,7 +203,7 @@ class CaptureNotifications(private val context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         val expectedIds = expectedCaptureIds.mapTo(mutableSetOf()) { failureNotificationId(it) }
         for (active in manager.activeNotifications) {
-            if (active.notification.channelId != FAILURE_CHANNEL_ID) continue
+            if (active.notification.channelId !in setOf(FAILURE_CHANNEL_ID, NO_SPEECH_CHANNEL_ID)) continue
             if (active.id == UNIDENTIFIED_FAILURE_NOTIFICATION_ID) continue
             if (active.id !in expectedIds) {
                 manager.cancel(active.id)

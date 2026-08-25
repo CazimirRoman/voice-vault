@@ -114,7 +114,7 @@ class RecordingService : Service() {
 
         notifications.updateToTranscribing()
         val outcome = TranscriptionQueue.transcribe(applicationContext, pendingFile)
-        handleOutcome(outcome, captureId, isFirstAttempt = true)
+        handleOutcome(outcome, captureId)
         stopSelf(startId)
     }
 
@@ -133,13 +133,13 @@ class RecordingService : Service() {
         for (file in pendingFiles) {
             val captureId = file.nameWithoutExtension
             val outcome = TranscriptionQueue.transcribe(applicationContext, file)
-            handleOutcome(outcome, captureId, isFirstAttempt = false)
+            handleOutcome(outcome, captureId)
         }
         if (startId >= 0) stopSelf(startId)
     }
 
     /** Reports (or silently clears) a classified transcription outcome for one capture. */
-    private fun handleOutcome(outcome: TranscriptionOutcome, captureId: String, isFirstAttempt: Boolean) {
+    private fun handleOutcome(outcome: TranscriptionOutcome, captureId: String) {
         if (outcome is TranscriptionOutcome.Success || outcome is TranscriptionOutcome.AlreadyHandled) {
             notifications.cancelFailure(captureId)
             return
@@ -156,10 +156,10 @@ class RecordingService : Service() {
         val allowDiscard = outcome !is TranscriptionOutcome.ModelUnavailable
         notifications.postFailure(outcome, captureId, durationSeconds, allowDiscard)
 
-        // The at-risk rumble is a data-loss signal. NoSpeech on a retry sweep is not lost
-        // data and the sweep re-runs every capture, so only the first attempt buzzes for it;
-        // every other failure class buzzes on both the first attempt and every later sweep.
-        if (isFirstAttempt || outcome !is TranscriptionOutcome.NoSpeech) {
+        // The at-risk rumble means recorded speech is at risk of being lost. NoSpeech means
+        // there was no speech to lose, so it never buzzes - not on the first attempt, and
+        // not on any later retry sweep. Every other failure class always buzzes.
+        if (outcome !is TranscriptionOutcome.NoSpeech) {
             haptics.atRisk()
         }
     }
