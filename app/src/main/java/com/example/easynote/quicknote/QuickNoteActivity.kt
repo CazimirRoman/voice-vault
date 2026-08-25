@@ -174,7 +174,7 @@ private fun RecentNoteCard(note: NoteSummary, noOpTap: MutableInteractionSource)
             )
             Text(
                 text = note.body,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp)
