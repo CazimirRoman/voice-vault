@@ -73,6 +73,8 @@ class RecordingService : Service() {
         // Per-capture, not a service field: captures can overlap, and each one must stop
         // on its own screen-off rather than sharing a registration with another.
         val screenOffStop = registerScreenOffStop(stop)
+        CaptureAudioFocus.acquire(this) { stop.request() }
+        val audioFocus = Registration { CaptureAudioFocus.release() }
         startTapToStopOverlay()
 
         val result = try {
@@ -80,6 +82,7 @@ class RecordingService : Service() {
         } catch (t: Throwable) {
             Log.w(Config.LOG_TAG, "recording failed to start", t)
             screenOffStop.release()
+            audioFocus.release()
             CaptureController.activeStop = null
             CaptureEvents.notifyRecordingEnded()
             haptics.atRisk()
@@ -89,6 +92,7 @@ class RecordingService : Service() {
         }
 
         screenOffStop.release()
+        audioFocus.release()
         CaptureController.activeStop = null
         haptics.stopped()
         CaptureEvents.notifyRecordingEnded()
