@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.EasyNote" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.VoiceVault" parent="android:Theme.Material.Light.NoActionBar" />
 
     <!-- Opaque on purpose: a genuinely translucent window reveals whatever else is in this
          activity's task underneath it (e.g. MainActivity, if one happens to be there), which
          is not what "dialog over the current screen" is supposed to show. A plain blank
          backdrop with the input card centered on it avoids depending on task/back-stack state
          entirely. -->
-    <style name="Theme.EasyNote.QuickNote" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.VoiceVault.QuickNote" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>

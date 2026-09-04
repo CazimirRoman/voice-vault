@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.easynote"
+    namespace = "dev.cazimir.voicevault"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.easynote"
+        applicationId = "dev.cazimir.voicevault"
         minSdk = 33
         targetSdk = 36
         versionCode = 1
@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.whisper.android)
     implementation(libs.kotlinx.coroutines.android)

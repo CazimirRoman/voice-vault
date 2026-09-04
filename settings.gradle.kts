@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "EasyNote"
+rootProject.name = "VoiceVault"
 include(":app")
  
