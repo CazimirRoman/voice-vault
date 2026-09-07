@@ -59,3 +59,32 @@ The system SHALL fire the same haptic pattern already used to signal a completed
 #### Scenario: No haptic on blank dismissal
 - **WHEN** the text-entry surface is dismissed with blank/whitespace-only text
 - **THEN** no haptic feedback is triggered
+
+### Requirement: Typed text is saved at most once
+The system SHALL write a given piece of typed text to the vault at most once, regardless of how many times the text-entry surface is stopped and resumed. After a successful save the system SHALL clear the input field, so that a subsequent dismissal of the same surface has no text to write.
+
+#### Scenario: Waking the phone does not re-save an already-saved note
+- **WHEN** the user types non-blank text, presses the power button (which saves the note), then turns the screen back on and unlocks the device
+- **THEN** no second note containing that text is written to the vault, and no second haptic fires
+
+#### Scenario: The field is empty after a save
+- **WHEN** the text-entry surface is still visible after its text has been saved
+- **THEN** the input field is empty rather than still showing the saved text
+
+### Requirement: The text-entry surface does not outlive a dismissal
+The system SHALL finish the text-entry activity once it has been dismissed by any normal means, whether or not a note was written, so that the surface is never resumed with the state of a previous quick note.
+
+#### Scenario: Screen-off dismissal disposes of the surface
+- **WHEN** the user dismisses the text-entry surface by pressing the power button to turn off the screen
+- **THEN** the surface is finished, and turning the screen back on returns the user to whatever was on screen before the widget was tapped rather than to the quick-note surface
+
+#### Scenario: Blank dismissal also disposes of the surface
+- **WHEN** the text-entry surface is dismissed while empty or containing only whitespace
+- **THEN** the surface is finished without writing a note
+
+### Requirement: The display stays awake while the text-entry surface is showing
+The system SHALL keep the display awake for as long as the text-entry surface is showing, so that the screen turning off is always a deliberate power press and never an idle display timeout.
+
+#### Scenario: A thinking pause does not commit a partial note
+- **WHEN** the user has typed partial text into the quick-note field and then stops interacting with the device for longer than the system display timeout
+- **THEN** the display remains on, the surface remains open with the partial text intact, and no note is written

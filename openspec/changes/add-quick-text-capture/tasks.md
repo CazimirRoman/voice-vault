@@ -1,10 +1,13 @@
 ## 1. QuickNoteActivity
 
 - [x] 1.1 Create `QuickNoteActivity` (new `quicknote/` package or alongside `capture/`, per implementer's call) with an opaque blank-backdrop theme, `exported="false"`, `excludeFromRecents`, `noHistory`, `taskAffinity=""` in the manifest (revised from an initial translucent theme, which leaked `MainActivity` through when task affinity wasn't isolated — see design.md).
-- [x] 1.2 Build the UI: a single auto-focused, auto-growing plain-text field, no title, no save/confirm button, centered in a card over a plain blank backdrop (not full-bleed, no `FLAG_KEEP_SCREEN_ON`).
+- [x] 1.2 Build the UI: a single auto-focused, auto-growing plain-text field, no title, no save/confirm button, centered in a card over a plain blank backdrop (not full-bleed).
 - [x] 1.3 On `onStop()`, if the field's text is blank/whitespace-only, skip saving entirely (no note, no haptic).
 - [x] 1.4 On `onStop()`, if the text is non-blank, call `VaultWriter.captureIdFor()` then `VaultWriter.writeNote(text, captureId)` and fire `Haptics.stopped()` on success.
 - [ ] 1.5 Verify back press, home press, and app-switch all route through the same `onStop()` save path (no separate handlers needed, but confirm empirically on device).
+- [x] 1.6 Hoist the text state into the activity (single `mutableStateOf`, no write-only `currentText` mirror) and clear it after a successful save, so a repeat `onStop()` finds a blank field and writes nothing.
+- [x] 1.7 Call `finish()` from `onStop()` whether or not a note was written, so the surface never resumes with a previous quick note's state.
+- [x] 1.8 Add `FLAG_KEEP_SCREEN_ON` to the activity's window so an idle display timeout can't stand in for a deliberate power press.
 
 ## 1a. Recent notes recall
 
@@ -27,3 +30,5 @@
 - [ ] 3.4 Open the widget and dismiss without typing anything (or typing only whitespace); confirm no note is created and no haptic fires.
 - [ ] 3.5 Confirm the note's frontmatter and filename scheme match voice-captured notes exactly (same `captureIdFor` collision handling against both `00-Inbox/` and `_pending/`).
 - [ ] 3.6 Confirm the recent-notes list shows the correct newest-5 notes (mix of voice and quick-text), with frontmatter stripped and previews truncated at 3 lines; confirm it shows fewer than 5 gracefully when the inbox has fewer notes.
+- [ ] 3.7 Type text, press the power button, then wake and unlock the phone; confirm the quick-note screen is gone (the pre-widget screen is showing) and that exactly one note was written with no second haptic.
+- [ ] 3.8 Open the widget, type partial text, and leave the phone untouched for longer than the display timeout; confirm the screen stays on, the text is still there, and no note has been written.

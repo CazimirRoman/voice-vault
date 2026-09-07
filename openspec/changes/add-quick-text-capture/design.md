@@ -38,11 +38,32 @@ If `editText.text.isBlank()`, skip `VaultWriter.writeNote`/`captureIdFor` entire
 
 ### Manifest shape: opaque blank backdrop with a centered card, own task, `exported="false"`
 
-The widget's `PendingIntent` is created and owned by the app's own `AppWidgetProvider` (`PendingIntent.getActivity` from within the app's process); the launcher only ever fires that already-constructed `PendingIntent`, it never needs to resolve `QuickNoteActivity` by component name the way it resolves a launcher-shortcut target. So `QuickNoteActivity` follows `TapToStopActivity`'s manifest shape — `exported="false"`, `excludeFromRecents`, `noHistory` — not `MainActivity`/`AssistIntentActivity`'s `exported="true"`. No `FLAG_KEEP_SCREEN_ON` (this is eyes-on; the user turning the screen off is the deliberate "I'm done" signal, exactly as it already is for voice capture).
+The widget's `PendingIntent` is created and owned by the app's own `AppWidgetProvider` (`PendingIntent.getActivity` from within the app's process); the launcher only ever fires that already-constructed `PendingIntent`, it never needs to resolve `QuickNoteActivity` by component name the way it resolves a launcher-shortcut target. So `QuickNoteActivity` follows `TapToStopActivity`'s manifest shape — `exported="false"`, `excludeFromRecents`, `noHistory` — not `MainActivity`/`AssistIntentActivity`'s `exported="true"`. No `FLAG_KEEP_SCREEN_ON` (this is eyes-on; the user turning the screen off is the deliberate "I'm done" signal, exactly as it already is for voice capture). *Reversed during implementation — see "The surface keeps the display awake" below.*
 
 *Revised during implementation:* the theme is **opaque**, not translucent, and the activity has its own `taskAffinity=""`. A genuinely translucent window (the first cut used `android:Theme.Translucent.NoTitleBar`) composites against whatever else is in `QuickNoteActivity`'s *task* — and with no `taskAffinity` set, that task could be `MainActivity`'s (the first-run permissions/storage/assistant-setup screen), which then became visible through the translucent parts of the window instead of "whatever the user was doing before." An opaque window with its own task sidesteps this: the backdrop is a plain solid-color screen we fully control, the input card is centered on it (not top-aligned), and nothing about it depends on back-stack/task state at tap time.
 
 *Alternative considered:* reuse `Theme.Translucent.NoTitleBar.Fullscreen` as-is. Rejected both for the reason above (task-affinity leakage) and because it has no window chrome/backdrop suited to a small centered input dialog.
+
+### `onStop()` clears the buffer and finishes the activity
+
+`onStop()` saving the note is necessary but not sufficient: `android:noHistory` does *not* finish the activity when the screen turns off (the platform defers no-history finishing while the device is going to sleep), so a power-button dismissal left the activity merely stopped, with its Compose state intact. Waking and unlocking the phone resumed the same instance, still showing the text that had already been written to the vault, and the next screen-off ran `onStop()` again — minting a second note (`captureIdFor()` returns a fresh id each time, so nothing collided) and firing a second haptic, once per power-cycle.
+
+Two changes, deliberately both:
+
+1. **Clear the text after a successful write.** The invariant is *a given piece of typed text is written to the vault at most once*, not *`onStop()` happens to fire once*. Clearing makes the existing blank-guard short-circuit any repeat `onStop()`, so no duplicate is possible even on a lifecycle path that skips the finish.
+2. **`finish()` on `onStop()`, saved or not.** The surface is transient by definition and `onStop()` is already this change's declared commit point for every dismissal path; letting it survive one means waking the phone hours later still sitting on an (empty) EasyNote screen on top of whatever was there before. Finishing unconditionally also keeps the recent-notes list's "read once at start" reasoning true — a saved note can never need to appear in its own still-visible list, because the list goes away with the save.
+
+This required hoisting the text state: the composable owned it via `remember { mutableStateOf("") }` and the activity held only a write-only mirror (`currentText`), which gave the activity no way to push a clear back down. The activity now owns the single `mutableStateOf`, so there is no shadow copy to desync.
+
+*Alternative considered:* clear the text but keep the activity alive, treating the surface as a persistent scratchpad. Rejected — it makes the recent-notes list stale the moment it matters (the note you just wrote is missing from the recall list you are still looking at), and a surface that never goes away is a note-browser by another name, which the Non-Goals rule out.
+
+### The surface keeps the display awake
+
+`FLAG_KEEP_SCREEN_ON`, matching `TapToStopActivity`. The original decision above declined the flag on the grounds that screen-off is the user's deliberate "I'm done" signal — but that assumes every screen-off is the user's doing. An idle display timeout produces an identical `onStop()`, and this activity has no way to tell them apart. Typing resets the timeout, so the window is narrow (pausing to think, or being interrupted mid-note), but the consequence got sharper once `onStop()` also finishes the activity: before, a timeout saved a partial note and left the screen up, so the user unlocked and kept typing; now the partial note is committed and the surface is gone, and finishing the thought means writing a second, separate note.
+
+This is the same pairing CLAUDE.md already records as an invariant for the capture overlay — "removing the flag makes an idle display timeout indistinguishable from a deliberate power press, and silently cuts recordings short mid-thought" — and it holds here for the same reason.
+
+*Alternative considered:* leave the flag off and accept the rare mis-commit. Rejected — an abandoned quick-note screen holding the display awake is a visible, self-correcting failure (the phone is face-up with a lit screen), whereas a silently truncated note is exactly the failure this app exists to prevent. Noted as a real cost, though: unlike a recording, a quick note has no self-terminating condition (no silence backstop, no duration cap), so an untouched surface stays lit until the user comes back to it.
 
 ### Widget is a plain `AppWidgetProvider` with a single click target, no configuration activity
 
@@ -63,6 +84,8 @@ Each note is shown frontmatter-stripped, capture-id label plus up to 3 lines of 
 - **Process death before `onStop()` runs loses unsaved text.** → Accepted (see Non-Goals); this is standard Android behavior for any unsaved input field and out of proportion to what a two-line "type and go" note needs.
 - **Home screen must have the widget placed for the "fastest path" to actually be fast**, and unlocking doesn't guarantee landing on the page with the widget. → Accepted; this was weighed against a Quick Settings tile during exploration and the user chose to ship only the widget for now. A tile can be added later as a separate change without touching this one, since both would ultimately just launch `QuickNoteActivity`.
 - **An opaque backdrop means the quick-note screen no longer visually shows the app the user was in before tapping the widget** (a genuinely translucent overlay would have, if task-affinity leakage weren't a problem). → Accepted; the blank backdrop was chosen specifically to avoid depending on task/back-stack state, and this app has no requirement that the previous screen remain visible underneath.
+
+- **`FLAG_KEEP_SCREEN_ON` means an abandoned quick-note screen holds the display awake indefinitely**, with no silence backstop or duration cap to end it the way a recording has. → Accepted; a lit screen is a visible, self-correcting failure, and it was preferred over an idle timeout silently committing a half-written note.
 
 ## Migration Plan
 
