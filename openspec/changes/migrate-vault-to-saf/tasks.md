@@ -35,4 +35,4 @@
 
 - [x] 6.1 Update or replace tests that construct `VaultWriter`/`AtomicFileWriter` calls against real `File`s with a SAF-compatible fake (fake `DocumentFile` tree or fake `VaultStorage`)
 - [x] 6.2 Add tests for grant-loss detection (resolution failure, `canWrite() == false`) triggering the failure signal
-- [ ] 6.3 Manual on-device pass (per project convention, since there is no CI): first-run folder selection, a full capture round-trip writing a note into the picked folder, revoking the permission in system Settings and confirming the failure notification + re-select flow, and confirming audio captured while the grant was invalid (still in `filesDir/pending/`) transcribes successfully once a folder is re-selected
+- [x] 6.3 Manual on-device pass (per project convention, since there is no CI): first-run folder selection, a full capture round-trip writing a note into the picked folder, revoking the permission in system Settings and confirming the failure notification + re-select flow, and confirming audio captured while the grant was invalid (still in `filesDir/pending/`) transcribes successfully once a folder is re-selected
