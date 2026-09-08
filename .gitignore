@@ -12,3 +12,9 @@ local.properties
 # (Config.MODEL_DOWNLOAD_URL), never committed.
 /models
 *.bin
+
+# Release signing: never commit the keystore or its passwords. CI reads these
+# from repository secrets; local release builds read keystore.properties.
+keystore.properties
+*.jks
+*.keystore

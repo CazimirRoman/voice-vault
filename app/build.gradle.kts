@@ -1,7 +1,25 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Release signing is resolved from env vars first (CI), then a local, gitignored
+// keystore.properties. If neither is present the release signingConfig is left
+// unset, so a plain `assembleRelease` still succeeds (unsigned) and debug builds
+// are unaffected. Nothing here is ever committed.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) FileInputStream(keystorePropsFile).use { load(it) }
+}
+
+fun signingValue(env: String, prop: String): String? =
+    System.getenv(env) ?: keystoreProps.getProperty(prop)
+
+val releaseStorePath = signingValue("SIGNING_STORE_FILE", "storeFile")
+val hasReleaseSigning = releaseStorePath != null && file(releaseStorePath).exists()
 
 android {
     namespace = "dev.cazimir.voicevault"
@@ -25,10 +43,24 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStorePath!!)
+                storePassword = signingValue("SIGNING_STORE_PASSWORD", "storePassword")
+                keyAlias = signingValue("SIGNING_KEY_ALIAS", "keyAlias")
+                keyPassword = signingValue("SIGNING_KEY_PASSWORD", "keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             optimization {
                 enable = false
+            }
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }
