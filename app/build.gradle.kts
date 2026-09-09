@@ -31,7 +31,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.cazimir.voicevault"
-        minSdk = 33
+        minSdk = 29
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"

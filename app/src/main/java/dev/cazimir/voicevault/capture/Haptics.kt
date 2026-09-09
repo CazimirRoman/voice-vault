@@ -1,11 +1,21 @@
 package dev.cazimir.voicevault.capture
 
 import android.content.Context
+import android.os.Build
 import android.os.VibrationEffect
+import android.os.Vibrator
 import android.os.VibratorManager
 
 class Haptics(context: Context) {
-    private val vibrator = context.getSystemService(VibratorManager::class.java).defaultVibrator
+    // VibratorManager arrived in API 31 (S). On Android 10-12L we fall back to the deprecated
+    // VIBRATOR_SERVICE, which is the only vibrator handle available below S.
+    private val vibrator: Vibrator =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
 
     /** Microphone is live — start speaking. */
     fun started() {

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -91,8 +92,18 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// POST_NOTIFICATIONS is a runtime permission only on API 33+. On Android 10-12 it is granted
+// at install time and cannot be requested, so including it in the runtime gate there would leave
+// the permission step permanently "not granted" and stall setup. Below 33 we only ask for the mic.
+private val requiredPermissions: Array<String> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        arrayOf(Manifest.permission.RECORD_AUDIO)
+    }
+
 private fun permissionsGranted(context: Context): Boolean =
-    arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS).all { permission ->
+    requiredPermissions.all { permission ->
         context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
     }
 
@@ -164,9 +175,7 @@ private fun SetupScreen(openPickerOnLaunch: Boolean, modifier: Modifier = Modifi
 
         SetupStep(number = 1, title = "Microphone & notification access", done = permsDone) {
             Button(onClick = {
-                requestPermissions.launch(
-                    arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
-                )
+                requestPermissions.launch(requiredPermissions)
             }) {
                 Text("Grant permissions")
             }
