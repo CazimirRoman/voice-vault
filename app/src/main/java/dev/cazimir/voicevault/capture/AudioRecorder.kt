@@ -11,12 +11,19 @@ import java.io.ByteArrayOutputStream
 import kotlin.coroutines.coroutineContext
 import kotlin.math.sqrt
 
+/** RMS mapped to a full-scale (1.0) meter reading; ordinary speech reaches roughly here. */
+private const val AMPLITUDE_FULL_SCALE_RMS = 4500.0
+
 class AudioRecorder {
 
     data class Result(val pcm: ByteArray, val sampleRateHz: Int)
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    suspend fun record(externalStop: ExternalStop, onCapturing: () -> Unit): Result {
+    suspend fun record(
+        externalStop: ExternalStop,
+        onCapturing: () -> Unit,
+        onAmplitude: (Float) -> Unit = {},
+    ): Result {
         val minBufferSize = AudioRecord.getMinBufferSize(
             Config.SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
@@ -51,7 +58,12 @@ class AudioRecorder {
 
                 appendPcm(output, readBuffer, read)
 
-                silentDurationMs = if (rms(readBuffer, read) < Config.SILENCE_RMS_THRESHOLD) {
+                val currentRms = rms(readBuffer, read)
+                // Perceptual (sqrt) mapping so ordinary speech fills a lively range rather
+                // than hugging the bottom of a linear scale.
+                onAmplitude(sqrt(currentRms / AMPLITUDE_FULL_SCALE_RMS).toFloat())
+
+                silentDurationMs = if (currentRms < Config.SILENCE_RMS_THRESHOLD) {
                     silentDurationMs + bufferDurationMs
                 } else {
                     0L

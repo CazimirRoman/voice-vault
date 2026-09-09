@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -116,19 +119,29 @@ private fun ListeningOverlay(onTap: () -> Unit) {
 }
 
 /**
- * An animated equalizer of rounded bars filled with the brand gradient. The motion is
- * synthetic (each bar oscillates on its own timing), not driven by the live mic level,
- * so it only signals "a capture is running" - it is not a true visualisation of speech.
+ * An equalizer of rounded bars filled with the brand gradient, driven by the live mic
+ * level from [CaptureEvents.amplitude]. Each bar also carries a slow per-bar oscillation
+ * so the row still shapes like speech rather than rising and falling as one block; when
+ * the mic is quiet the bars settle low, when you speak they jump.
  */
 @Composable
 private fun VoiceWave() {
     val transition = rememberInfiniteTransition(label = "voicewave")
     val durations = listOf(520, 610, 470, 680, 540, 640, 500)
     val floors = listOf(0.30f, 0.20f, 0.45f, 0.25f, 0.38f, 0.22f, 0.34f)
+    val weights = listOf(0.72f, 0.86f, 0.96f, 1f, 0.96f, 0.86f, 0.72f)
 
-    val levels = ArrayList<Float>(durations.size)
+    // Live mic level (0..1), smoothed so the bars glide between reads instead of stepping.
+    val rawLevel by CaptureEvents.amplitude.collectAsState()
+    val level by animateFloatAsState(
+        targetValue = rawLevel,
+        animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing),
+        label = "level"
+    )
+
+    val oscillations = ArrayList<Float>(durations.size)
     for (i in durations.indices) {
-        val level = transition.animateFloat(
+        val osc = transition.animateFloat(
             initialValue = floors[i],
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
@@ -137,11 +150,11 @@ private fun VoiceWave() {
             ),
             label = "bar$i"
         ).value
-        levels.add(level)
+        oscillations.add(osc)
     }
 
     Canvas(modifier = Modifier.size(width = 240.dp, height = 120.dp)) {
-        val count = levels.size
+        val count = oscillations.size
         val gap = size.width * 0.045f
         val barWidth = (size.width - gap * (count - 1)) / count
         val brush = Brush.horizontalGradient(
@@ -149,9 +162,16 @@ private fun VoiceWave() {
             startX = 0f,
             endX = size.width
         )
-        val minHeight = size.height * 0.16f
-        levels.forEachIndexed { i, level ->
-            val h = minHeight + (size.height - minHeight) * level
+        // The live level drives height directly (with gain) so speech pushes the bars
+        // most of the way up; the oscillation only adds ±30% texture. A faint idle wave
+        // keeps the row gently alive when the mic is quiet.
+        val gain = 1.9f
+        val minHeight = size.height * 0.10f
+        oscillations.forEachIndexed { i, osc ->
+            val voice = level * gain * weights[i] * (0.7f + 0.3f * osc)
+            val idle = 0.06f * osc
+            val fraction = maxOf(voice, idle).coerceIn(0f, 1f)
+            val h = minHeight + (size.height - minHeight) * fraction
             val x = i * (barWidth + gap)
             val top = (size.height - h) / 2f
             drawRoundRect(

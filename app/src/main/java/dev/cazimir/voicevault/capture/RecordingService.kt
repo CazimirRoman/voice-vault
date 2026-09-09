@@ -78,7 +78,11 @@ class RecordingService : Service() {
         startTapToStopOverlay()
 
         val result = try {
-            audioRecorder.record(stop) { haptics.started() }
+            audioRecorder.record(
+                externalStop = stop,
+                onCapturing = { haptics.started() },
+                onAmplitude = { CaptureEvents.publishAmplitude(it) },
+            )
         } catch (t: Throwable) {
             Log.w(Config.LOG_TAG, "recording failed to start", t)
             screenOffStop.release()

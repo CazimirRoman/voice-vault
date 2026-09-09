@@ -1,7 +1,9 @@
 package dev.cazimir.voicevault.capture
 
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class ExternalStop {
     @Volatile
@@ -25,11 +27,20 @@ object CaptureEvents {
     private val _recordingEnded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val recordingEnded = _recordingEnded.asSharedFlow()
 
+    /** Normalised mic level (0..1) of the current capture, driving the listening overlay. */
+    private val _amplitude = MutableStateFlow(0f)
+    val amplitude = _amplitude.asStateFlow()
+
     fun requestStop() {
         CaptureController.activeStop?.request()
     }
 
+    fun publishAmplitude(level: Float) {
+        _amplitude.value = level.coerceIn(0f, 1f)
+    }
+
     fun notifyRecordingEnded() {
+        _amplitude.value = 0f
         _recordingEnded.tryEmit(Unit)
     }
 }
