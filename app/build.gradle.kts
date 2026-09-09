@@ -56,9 +56,16 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            // R8 code + resource shrinking. Uses the stable legacy DSL rather than AGP 9's
+            // optimization{} block, which still needs the experimental android.r8.gradual.support
+            // flag. Keep rules (incl. the whisper JNI surface and -dontobfuscate) live in
+            // proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
