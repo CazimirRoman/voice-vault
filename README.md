@@ -1,11 +1,25 @@
-# Voice Vault
+<p align="center">
+  <img src="docs/icon.png" alt="Voice Vault" width="128" height="128">
+</p>
 
-Hold the power button, speak, pocket the phone. A moment later a Markdown note
-appears in your Obsidian vault. No screen, no typing, fully offline.
+<h1 align="center">Voice Vault</h1>
+
+<p align="center">
+  Hold the power button, speak, pocket the phone. A moment later a Markdown note
+  appears in your Obsidian vault. No screen, no typing, fully offline.
+</p>
 
 Voice Vault is an eyes-free voice-capture app for the moment an idea shows up and
 reaching for a keyboard would lose it. Trigger it, talk, put the phone away. That
 is the whole interaction.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshot-setup.png" alt="Setup screen" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot-listening.png" alt="Listening screen" width="300">
+</p>
 
 ## How it works
 
@@ -33,11 +47,24 @@ After that, capture and transcription are fully offline.
 
 ## Requirements and scope
 
+This is a Pixel-first app. It was built and tested on a Pixel 6 Pro, and that is
+the one setup the whole experience is verified against. It should install and run
+on other reasonably recent phones, but two things are worth knowing before you try.
+
+The power-button trigger depends on your phone letting the default assistant answer
+the assist gesture. On stock Pixel and other close-to-AOSP builds this works once
+Voice Vault is set as the digital assistant. On many OEM skins (Samsung, Xiaomi,
+OnePlus, and others) the power-button hold is wired to the maker's own power menu or
+assistant and cannot be reassigned, so the gesture may do nothing. On those phones
+the Quick Note home-screen widget is the reliable way in, and it works everywhere.
+
 - Android 13 (API 33) or newer.
-- `arm64-v8a` devices. Built and tested on a Pixel 6 Pro; other arm64 devices are
-  unverified.
+- `arm64-v8a` devices only. This covers essentially every phone from the last several
+  years; older 32-bit-only devices are not supported.
 - English speech only (an English Whisper model is used).
 - About 60 MB of free space for the model.
+- Enough CPU to transcribe locally. A recent flagship handles a short note in a few
+  seconds; older or budget hardware will be noticeably slower.
 - Permissions: microphone (to record), notifications (to report status), internet
   (one-time model download only).
 
