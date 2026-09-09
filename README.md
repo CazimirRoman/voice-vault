@@ -79,32 +79,6 @@ This is a privacy app, so you should be able to check it rather than trust it:
 ./gradlew lint                   # Android lint
 ```
 
-## Releasing (maintainer)
-
-Release APKs are signed and published automatically. To cut a release:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The workflow builds a signed release APK, attaches it and its SHA-256 to a GitHub
-Release, and generates release notes.
-
-**Signing setup.** Signing is read from environment variables in CI and from a
-local, gitignored `keystore.properties` for local release builds (copy
-`keystore.properties.example` to start). CI needs these repository secrets under
-Settings > Secrets and variables > Actions:
-
-| Secret | Value |
-| --- | --- |
-| `SIGNING_KEYSTORE_BASE64` | `base64 -i your.jks` output |
-| `SIGNING_STORE_PASSWORD` | keystore password |
-| `SIGNING_KEY_ALIAS` | alias of the Voice Vault key |
-| `SIGNING_KEY_PASSWORD` | that key's password |
-
-Never commit the keystore or its passwords.
-
 ## Architecture
 
 The flow is a pipeline with a durability checkpoint in the middle, each stage owned
