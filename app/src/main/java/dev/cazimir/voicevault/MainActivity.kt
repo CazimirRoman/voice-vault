@@ -14,7 +14,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +40,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -46,6 +51,9 @@ import dev.cazimir.voicevault.capture.RecordingService
 import dev.cazimir.voicevault.notify.CaptureNotifications
 import dev.cazimir.voicevault.transcribe.ModelDownloadState
 import dev.cazimir.voicevault.transcribe.ModelDownloader
+import dev.cazimir.voicevault.ui.theme.BrandIndigo
+import dev.cazimir.voicevault.ui.theme.BrandPurple
+import dev.cazimir.voicevault.ui.theme.BrandViolet
 import dev.cazimir.voicevault.ui.theme.VoiceVaultTheme
 import dev.cazimir.voicevault.vault.VaultAccess
 import dev.cazimir.voicevault.vault.VaultFolderSelector
@@ -166,7 +174,31 @@ private fun SetupScreen(openPickerOnLaunch: Boolean, modifier: Modifier = Modifi
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text("Voice Vault setup", style = MaterialTheme.typography.headlineSmall)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(BrandIndigo, BrandViolet, BrandPurple)
+                    )
+                )
+                .padding(24.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "Voice Vault",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                Text(
+                    "Eyes-free voice notes, straight into your vault.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+        }
         Text(
             "Work down these four steps. Capture needs all of them.",
             style = MaterialTheme.typography.bodyMedium,
