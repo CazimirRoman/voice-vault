@@ -78,11 +78,3 @@ This is a privacy app, so you should be able to check it rather than trust it:
 ./gradlew connectedAndroidTest   # instrumented tests (needs a device)
 ./gradlew lint                   # Android lint
 ```
-
-## Architecture
-
-The flow is a pipeline with a durability checkpoint in the middle, each stage owned
-by one package: `assistant/` (power-button trigger), `capture/` (foreground service
-owning the mic and stop conditions), `vault/` (atomic Markdown writes into a
-SAF-selected folder), and `transcribe/` (on-device Whisper). See `CLAUDE.md` and
-`openspec/` for the full design rationale.
