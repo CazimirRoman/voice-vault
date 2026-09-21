@@ -1,5 +1,6 @@
 package dev.cazimir.voicevault.quicknote
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -70,6 +71,11 @@ class QuickNoteActivity : ComponentActivity() {
         // idle display timeout - so the display must never sleep on its own, or a pause to think
         // would save half a note and take the screen away mid-thought.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        text = when (intent?.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
+            Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString().orEmpty()
+            else -> ""
+        }
         enableEdgeToEdge()
         setContent {
             VoiceVaultTheme {
