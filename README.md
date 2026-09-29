@@ -58,7 +58,7 @@ OnePlus, and others) the power-button hold is wired to the maker's own power men
 assistant and cannot be reassigned, so the gesture may do nothing. On those phones
 the Quick Note home-screen widget is the reliable way in, and it works everywhere.
 
-- Android 13 (API 33) or newer.
+- Android 10 (API 29) or newer.
 - `arm64-v8a` devices only. This covers essentially every phone from the last several
   years; older 32-bit-only devices are not supported.
 - English speech only (an English Whisper model is used).
