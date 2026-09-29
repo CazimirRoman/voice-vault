@@ -155,7 +155,7 @@ private fun VoiceWave() {
 
     Canvas(modifier = Modifier.size(width = 240.dp, height = 120.dp)) {
         val count = oscillations.size
-        val gap = size.width * 0.045f
+        val gap = size.width * 0.085f
         val barWidth = (size.width - gap * (count - 1)) / count
         val brush = Brush.horizontalGradient(
             colors = listOf(BrandIndigo, BrandViolet, BrandPurple),
@@ -165,7 +165,7 @@ private fun VoiceWave() {
         // The live level drives height directly (with gain) so speech pushes the bars
         // most of the way up; the oscillation only adds ±30% texture. A faint idle wave
         // keeps the row gently alive when the mic is quiet.
-        val gain = 1.9f
+        val gain = 1.35f
         val minHeight = size.height * 0.10f
         oscillations.forEachIndexed { i, osc ->
             val voice = level * gain * weights[i] * (0.7f + 0.3f * osc)
