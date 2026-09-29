@@ -36,7 +36,7 @@ android {
         // Bump both for every release: Play rejects an upload whose versionCode is not
         // higher than the last one, and Obtainium compares versionName against the tag.
         versionCode = 2
-        versionName = "1.1.0"
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
