@@ -1,7 +1,8 @@
 name: Release
 
-# Builds a signed release APK and publishes it to a GitHub Release whenever a
-# version tag is pushed, e.g.:
+# Builds a signed release APK (for sideloading/Obtainium) and app bundle (for the
+# Play Console upload) and publishes both to a GitHub Release whenever a version
+# tag is pushed, e.g.:
 #   git tag v1.0.0 && git push origin v1.0.0
 #
 # Required repository secrets (Settings > Secrets and variables > Actions):
@@ -42,13 +43,13 @@ jobs:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
         run: echo "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
 
-      - name: Build signed release APK
+      - name: Build signed release APK and bundle
         env:
           SIGNING_STORE_FILE: ${{ runner.temp }}/release.jks
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Prepare artifacts
         id: artifacts
@@ -60,6 +61,11 @@ jobs:
           cp "$apk" "$out"
           sha256sum "$out" > "$out.sha256"
           echo "apk=$out" >> "$GITHUB_OUTPUT"
+          aab=$(find app/build/outputs/bundle/release -name "*.aab" | head -n1)
+          if [ -z "$aab" ]; then echo "No bundle produced" >&2; exit 1; fi
+          aab_out="voice-vault-${GITHUB_REF_NAME}.aab"
+          cp "$aab" "$aab_out"
+          echo "aab=$aab_out" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -67,5 +73,6 @@ jobs:
           files: |
             ${{ steps.artifacts.outputs.apk }}
             ${{ steps.artifacts.outputs.apk }}.sha256
+            ${{ steps.artifacts.outputs.aab }}
           generate_release_notes: true
           fail_on_unmatched_files: true

@@ -33,8 +33,10 @@ android {
         applicationId = "dev.cazimir.voicevault"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Bump both for every release: Play rejects an upload whose versionCode is not
+        // higher than the last one, and Obtainium compares versionName against the tag.
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
