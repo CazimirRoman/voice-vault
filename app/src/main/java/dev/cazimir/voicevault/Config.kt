@@ -23,6 +23,15 @@ object Config {
     /** Byte size of the fixed PCM16 mono header `WavEncoder` writes, used to derive duration from file size. */
     const val WAV_HEADER_SIZE_BYTES = 44
 
+    /**
+     * YAML frontmatter prepended to every note, with `{{created}}` replaced by the capture
+     * date (yyyy-MM-dd). Deliberately minimal so notes drop cleanly into any vault. There is
+     * no settings UI: to tailor this to your own vault (add Priority, Area, tags, whatever),
+     * edit this template and rebuild. Set it to an empty string to write notes with no
+     * frontmatter at all.
+     */
+    const val NOTE_FRONTMATTER_TEMPLATE = "---\ncreated: {{created}}\n---\n"
+
     const val MODEL_FILE_NAME = "ggml-base.en-q5_1.bin"
 
     /**

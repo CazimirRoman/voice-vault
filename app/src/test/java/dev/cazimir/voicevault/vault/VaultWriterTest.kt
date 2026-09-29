@@ -67,14 +67,14 @@ class VaultWriterTest {
     }
 
     @Test
-    fun `writeNote emits the shared inbox frontmatter schema around the body`() {
+    fun `writeNote wraps the body in the created-date frontmatter template`() {
         val storage = FakeVaultStorage()
 
         VaultWriter.writeNote(storage, "hello there\n", "2026-08-19 0900")
 
         val content = storage.written.getValue("2026-08-19 0900.md")
         assertEquals(
-            "---\nCreated: 2026-08-19\nPriority: \nArea: \nAction: false\n---\nhello there\n",
+            "---\ncreated: 2026-08-19\n---\nhello there\n",
             content
         )
     }

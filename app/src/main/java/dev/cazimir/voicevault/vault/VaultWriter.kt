@@ -77,23 +77,17 @@ object VaultWriter {
         storage.access() is VaultAccess.Available
 
     /**
-     * Matches the frontmatter schema already used across the vault's inbox notes
-     * (Created / Priority / Area / Action), so voice notes sit alongside manually
-     * written ones without looking like a different kind of thing.
+     * Prepends [Config.NOTE_FRONTMATTER_TEMPLATE] (with the capture date filled in) to the
+     * transcript. The template is intentionally minimal so notes fit any vault; edit it in
+     * `Config.kt` to add your own keys.
      */
     fun writeNote(context: Context, text: String, captureId: String) =
         writeNote(storage(context), text, captureId)
 
     internal fun writeNote(storage: VaultStorage, text: String, captureId: String) {
         val createdDate = captureId.take(10)
-        val content = "---\n" +
-            "Created: $createdDate\n" +
-            "Priority: \n" +
-            "Area: \n" +
-            "Action: false\n" +
-            "---\n" +
-            text
-        storage.writeNote("$captureId.md", content)
+        val frontmatter = Config.NOTE_FRONTMATTER_TEMPLATE.replace("{{created}}", createdDate)
+        storage.writeNote("$captureId.md", frontmatter + text)
     }
 
     /** Whether a note for [captureId] already exists - the source of truth for "did this capture succeed". */
